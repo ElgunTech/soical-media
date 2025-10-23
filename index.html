@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Frendli | Uşaqlar üçün sosial platforma</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="auth-overlay" id="auth-overlay" aria-hidden="false">
+      <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <div class="logo auth-logo">
+          <span class="sparkle">✨</span>
+          <span class="wordmark">Frendli</span>
+        </div>
+        <h2 id="auth-title">Macəraya qoşulmaq üçün daxil ol</h2>
+        <div class="auth-tabs" role="tablist">
+          <button
+            type="button"
+            class="auth-tab active"
+            data-target="login"
+            role="tab"
+            aria-selected="true"
+          >
+            Giriş
+          </button>
+          <button
+            type="button"
+            class="auth-tab"
+            data-target="register"
+            role="tab"
+            aria-selected="false"
+          >
+            Qeydiyyat
+          </button>
+        </div>
+        <div class="auth-forms">
+          <form
+            id="login-form"
+            class="auth-form active"
+            data-form="login"
+            autocomplete="off"
+          >
+            <label class="field">
+              <span class="field-label">İstifadəçi adı</span>
+              <input
+                type="text"
+                id="login-username"
+                placeholder="Məs: aysu_magic"
+                required
+              />
+            </label>
+            <label class="field">
+              <span class="field-label">Şifrə</span>
+              <input
+                type="password"
+                id="login-password"
+                placeholder="Şifrən"
+                minlength="4"
+                required
+              />
+            </label>
+            <button type="submit" class="btn btn-primary">Daxil ol</button>
+          </form>
+
+          <form
+            id="register-form"
+            class="auth-form"
+            data-form="register"
+            autocomplete="off"
+          >
+            <label class="field">
+              <span class="field-label">Tam ad</span>
+              <input
+                type="text"
+                id="register-fullname"
+                placeholder="Məs: Ləman Əliyeva"
+                required
+              />
+            </label>
+            <label class="field">
+              <span class="field-label">İstifadəçi adı</span>
+              <input
+                type="text"
+                id="register-username"
+                placeholder="Özünə uyğun ad seç"
+                required
+              />
+            </label>
+            <label class="field">
+              <span class="field-label">Şifrə</span>
+              <input
+                type="password"
+                id="register-password"
+                placeholder="Ən azı 4 simvol"
+                minlength="4"
+                required
+              />
+            </label>
+            <p class="auth-hint">Qeydiyyat tamamlandıqdan sonra rəngli profilin avtomatik yaradılacaq.</p>
+            <button type="submit" class="btn btn-primary">Qeydiyyatdan keç</button>
+          </form>
+        </div>
+        <p class="auth-message" id="auth-message" role="alert" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div id="app" class="app hidden">
+      <div class="background-gradient"></div>
+      <header class="topbar">
+        <div class="logo">
+          <span class="sparkle">✨</span>
+          <span class="wordmark">Frendli</span>
+        </div>
+        <nav class="topnav">
+          <a href="#profile">Profil</a>
+          <a href="#posts">Postlar</a>
+          <a href="#tests">Testlər</a>
+          <a href="#chat">Söhbət</a>
+        </nav>
+        <button class="btn btn-primary" id="auth-action">Giriş</button>
+      </header>
+
+      <main class="container">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-text">
+          <h1 id="hero-title">Uşaqlar üçün xoş və təhlükəsiz sosial media</h1>
+          <p>
+            Frendli-də dostlarınla rəngli postlar paylaş, mini testlərlə biliklərini
+            yoxla və real-time söhbətlərlə ünsiyyəti gücləndir. Hamısı bir ekranda!
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary">Başla</button>
+            <button class="btn btn-ghost">Necə işləyir?</button>
+          </div>
+        </div>
+        <div class="hero-illustration" role="presentation">
+          <div class="planet"></div>
+          <div class="rocket">🚀</div>
+          <div class="cloud cloud-left"></div>
+          <div class="cloud cloud-right"></div>
+        </div>
+      </section>
+
+      <section id="profile" class="dashboard">
+        <div class="card profile-card">
+          <header class="card-header">
+            <h2>Sənin profilin</h2>
+            <button class="btn btn-small">Məqalə paylaş</button>
+          </header>
+          <div class="profile-info">
+            <img
+              id="profile-avatar"
+              src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=120&q=60"
+              alt="Frendli istifadəçi avatarı"
+            />
+            <div>
+              <h3 id="profile-name">Aysu Məmmədova</h3>
+              <p class="handle" id="profile-handle">@aysu_magic</p>
+              <div class="stats">
+                <div>
+                  <span class="stat-value" id="profile-friends">128</span>
+                  <span class="stat-label">Dost</span>
+                </div>
+                <div>
+                  <span class="stat-value" id="profile-posts">54</span>
+                  <span class="stat-label">Post</span>
+                </div>
+                <div>
+                  <span class="stat-value" id="profile-tests">9</span>
+                  <span class="stat-label">Test</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mood">
+            <h4>Bugünkü əhvalın</h4>
+            <div class="mood-options">
+              <button class="mood-btn" data-mood="super">🤩 Möhtəşəm!</button>
+              <button class="mood-btn" data-mood="chill">😌 Rahat</button>
+              <button class="mood-btn" data-mood="curious">🤔 Maraqlı</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card follow-card">
+          <header class="card-header">
+            <h2>Dostlarını tap</h2>
+            <span class="hint">Instagram kimi takipləş!</span>
+          </header>
+          <ul class="follow-list" id="follow-list" aria-live="polite"></ul>
+        </div>
+      </section>
+
+      <section id="posts" class="card posts-card">
+        <header class="card-header">
+          <h2>Postlar lentin</h2>
+          <div class="post-actions">
+            <button class="btn btn-small btn-ghost" id="filter-latest">Ən yenilər</button>
+            <button class="btn btn-small btn-ghost" id="filter-popular">Ən sevilənlər</button>
+          </div>
+        </header>
+        <form id="create-post" class="create-post" aria-label="Yeni post yarat">
+          <label class="field">
+            <span class="field-label">Post başlığı</span>
+            <input type="text" id="post-title" placeholder="Məs: Dostlarla oyun gecəsi" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Post məzmunu</span>
+            <textarea id="post-content" placeholder="Bugün nə etdiyini yaz..." required></textarea>
+          </label>
+          <button type="submit" class="btn btn-primary">Paylaş</button>
+        </form>
+        <div id="post-list" class="post-list" aria-live="polite"></div>
+      </section>
+
+      <section id="tests" class="card tests-card">
+        <header class="card-header">
+          <h2>Bilgi oyunları və testlər</h2>
+          <span class="hint">Özünü sınamaq üçün əyləncəli suallar!</span>
+        </header>
+        <div class="tests-content">
+          <aside class="tests-sidebar">
+            <ul id="quiz-list"></ul>
+          </aside>
+          <div class="quiz-panel" id="quiz-panel">
+            <div class="quiz-placeholder">
+              <h3>Bir testi seç</h3>
+              <p>Sevimli mövzundan başla və nəticələrini dostlarınla paylaş.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="chat" class="card chat-card">
+        <header class="card-header">
+          <h2>Real-time söhbət otağı</h2>
+          <span class="hint">Dostlarınla anlıq mesajlaş!</span>
+        </header>
+        <div class="chat-wrapper">
+          <aside class="chat-friends">
+            <h3>Onlayn dostlar</h3>
+            <ul id="online-friends"></ul>
+          </aside>
+          <div class="chat-window">
+            <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+            <form id="chat-form" class="chat-form" autocomplete="off">
+              <input
+                type="text"
+                id="chat-input"
+                placeholder="Mesaj yaz..."
+                aria-label="Mesaj yaz"
+                required
+              />
+              <button type="submit" class="btn btn-primary">Göndər</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>© 2024 Frendli · Rəngli dostluqlar üçün hazırlanıb</p>
+      <div class="footer-links">
+        <a href="#">Qaydalar</a>
+        <a href="#">Məxfilik</a>
+        <a href="#">Kömək</a>
+      </div>
+    </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
