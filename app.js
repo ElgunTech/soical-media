@@ -150,6 +150,16 @@ const chatReplies = [
   "Sənə 3 yeni dost təklifi göndərdim!"
 ];
 
+const SNAKE_BEST_PREFIX = "frendliSnakeBest_";
+const SNAKE_LEADERBOARD_KEY = "frendliSnakeLeaderboard";
+const DEFAULT_SNAKE_LEADERBOARD = [
+  { id: "sample-mira", name: "Mira Kod", score: 18 },
+  { id: "sample-leo", name: "Leo Qraf", score: 16 },
+  { id: "sample-tunar", name: "Tunar Oyuncu", score: 14 },
+  { id: "sample-leyla", name: "Leyla Kitab", score: 12 },
+  { id: "sample-nigar", name: "Nigar Musiqi", score: 10 }
+];
+
 let filteredPosts = [...postData];
 
 const STORAGE_USERS_KEY = "frendliUsers";
@@ -193,8 +203,34 @@ const chatMessages = document.getElementById("chat-messages");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
 const onlineFriends = document.getElementById("online-friends");
+const navToggle = document.getElementById("nav-toggle");
+const dashboardNav = document.getElementById("dashboard-nav");
+const dashboardLinks = document.querySelectorAll(".dashboard-link");
+const dashboardSections = document.querySelectorAll(".dashboard-section");
+const snakeCanvas = document.getElementById("snake-canvas");
+const snakeStartButton = document.getElementById("snake-start");
+const snakeCurrentScoreEl = document.getElementById("snake-current");
+const snakeBestScoreEl = document.getElementById("snake-best");
+const snakeLeaderboardList = document.getElementById("snake-leaderboard");
 
 let authMessageTimeout;
+let snakeLeaderboard = [];
+let activeSectionId = "home";
+
+const snakeGame = {
+  ctx: snakeCanvas ? snakeCanvas.getContext("2d") : null,
+  tileSize: 20,
+  gridSize: snakeCanvas ? Math.floor(snakeCanvas.width / 20) : 18,
+  snake: [],
+  direction: { x: 1, y: 0 },
+  nextDirection: { x: 1, y: 0 },
+  food: null,
+  loopId: null,
+  running: false,
+  score: 0,
+  speed: 140,
+  startedOnce: false
+};
 
 function showAuthMessage(text, type = "info") {
   if (!authMessage) return;
@@ -298,6 +334,7 @@ function updateUIForUser(user) {
   if (!appContainer || !authOverlay) return;
 
   if (!user) {
+    showSection("home");
     appContainer.classList.add("hidden");
     authOverlay.classList.remove("hidden");
     authOverlay.setAttribute("aria-hidden", "false");
@@ -309,6 +346,7 @@ function updateUIForUser(user) {
     if (chatMessages) {
       chatMessages.innerHTML = "";
     }
+    refreshSnakeForActiveUser();
     return;
   }
 
@@ -325,6 +363,7 @@ function updateUIForUser(user) {
   showAuthMessage("");
   activateAuthTab("login");
   resetChat(user);
+  refreshSnakeForActiveUser();
 }
 
 function updateCurrentUser(updater) {
@@ -780,7 +819,412 @@ function bindMoodButtons() {
   );
 }
 
+function toggleNavigation(forceOpen) {
+  if (!dashboardNav || !navToggle) return;
+  const shouldOpen =
+    typeof forceOpen === "boolean"
+      ? forceOpen
+      : !dashboardNav.classList.contains("open");
+
+  dashboardNav.classList.toggle("open", shouldOpen);
+  navToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+
+function showSection(sectionId) {
+  if (!sectionId) return;
+
+  activeSectionId = sectionId;
+
+  dashboardSections.forEach((section) => {
+    const isActive = section.dataset.section === sectionId;
+    section.classList.toggle("active", isActive);
+  });
+
+  dashboardLinks.forEach((link) => {
+    const isActive = link.dataset.nav === sectionId;
+    link.classList.toggle("active", isActive);
+  });
+
+  if (sectionId !== "games") {
+    stopSnakeGame(true);
+    updateSnakeCurrentScore(0);
+  } else if (snakeGame.ctx && !snakeGame.snake.length) {
+    drawSnakeGame();
+  }
+
+  toggleNavigation(false);
+}
+
+function getActivePlayerId() {
+  return appState.currentUser?.username?.toLowerCase() ?? "guest";
+}
+
+function getActivePlayerName() {
+  if (appState.currentUser?.fullName) {
+    const [firstPart] = appState.currentUser.fullName.split(" ");
+    return firstPart || appState.currentUser.fullName;
+  }
+  if (appState.currentUser?.username) {
+    return appState.currentUser.username;
+  }
+  return "Qonaq oyunçu";
+}
+
+function getSnakeBestScore() {
+  try {
+    const stored = localStorage.getItem(`${SNAKE_BEST_PREFIX}${getActivePlayerId()}`);
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch (error) {
+    console.warn("Snake best score oxunmadı", error);
+    return 0;
+  }
+}
+
+function setSnakeBestScore(score) {
+  try {
+    localStorage.setItem(`${SNAKE_BEST_PREFIX}${getActivePlayerId()}`, String(score));
+  } catch (error) {
+    console.warn("Snake best score yazılmadı", error);
+  }
+}
+
+function updateSnakeBestDisplay(score) {
+  if (snakeBestScoreEl) {
+    snakeBestScoreEl.textContent = score;
+  }
+}
+
+function updateSnakeCurrentScore(score) {
+  if (snakeCurrentScoreEl) {
+    snakeCurrentScoreEl.textContent = score;
+  }
+}
+
+function saveSnakeLeaderboard(data) {
+  try {
+    localStorage.setItem(SNAKE_LEADERBOARD_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.warn("Snake leaderboard saxlanmadı", error);
+  }
+}
+
+function loadSnakeLeaderboard() {
+  try {
+    const stored = localStorage.getItem(SNAKE_LEADERBOARD_KEY);
+    if (!stored) {
+      return [...DEFAULT_SNAKE_LEADERBOARD];
+    }
+
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) {
+      return [...DEFAULT_SNAKE_LEADERBOARD];
+    }
+
+    return parsed
+      .filter(
+        (entry) =>
+          entry && typeof entry.id === "string" && typeof entry.name === "string" && Number.isFinite(Number(entry.score))
+      )
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        score: Math.max(0, Number(entry.score))
+      }));
+  } catch (error) {
+    console.warn("Snake leaderboard oxunmadı", error);
+    return [...DEFAULT_SNAKE_LEADERBOARD];
+  }
+}
+
+function renderSnakeLeaderboard() {
+  if (!snakeLeaderboardList) return;
+
+  snakeLeaderboardList.innerHTML = "";
+  snakeLeaderboard.forEach((entry, index) => {
+    const li = document.createElement("li");
+    if (entry.id === getActivePlayerId()) {
+      li.classList.add("active-player");
+    }
+    li.innerHTML = `<span>${index + 1}. ${entry.name}</span><strong>${entry.score}</strong>`;
+    snakeLeaderboardList.appendChild(li);
+  });
+}
+
+function syncLeaderboardEntry(bestScore) {
+  const playerId = getActivePlayerId();
+  const playerName = getActivePlayerName();
+  const index = snakeLeaderboard.findIndex((entry) => entry.id === playerId);
+
+  if (bestScore > 0) {
+    if (index === -1) {
+      snakeLeaderboard.push({ id: playerId, name: playerName, score: bestScore });
+    } else {
+      snakeLeaderboard[index].name = playerName;
+      snakeLeaderboard[index].score = Math.max(snakeLeaderboard[index].score, bestScore);
+    }
+  } else if (index !== -1) {
+    snakeLeaderboard[index].name = playerName;
+  }
+
+  snakeLeaderboard.sort((a, b) => b.score - a.score);
+  snakeLeaderboard = snakeLeaderboard.slice(0, 8);
+  saveSnakeLeaderboard(snakeLeaderboard);
+  renderSnakeLeaderboard();
+}
+
+function recordSnakeLeaderboard(score) {
+  if (score <= 0) return;
+
+  const playerId = getActivePlayerId();
+  const playerName = getActivePlayerName();
+  const index = snakeLeaderboard.findIndex((entry) => entry.id === playerId);
+
+  if (index === -1) {
+    snakeLeaderboard.push({ id: playerId, name: playerName, score });
+  } else if (score > snakeLeaderboard[index].score) {
+    snakeLeaderboard[index].score = score;
+    snakeLeaderboard[index].name = playerName;
+  } else {
+    snakeLeaderboard[index].name = playerName;
+  }
+
+  snakeLeaderboard.sort((a, b) => b.score - a.score);
+  snakeLeaderboard = snakeLeaderboard.slice(0, 8);
+  saveSnakeLeaderboard(snakeLeaderboard);
+  renderSnakeLeaderboard();
+}
+
+function refreshSnakeForActiveUser() {
+  if (!snakeBestScoreEl || !snakeCurrentScoreEl) return;
+  const bestScore = getSnakeBestScore();
+  updateSnakeBestDisplay(bestScore);
+  if (!snakeGame.running) {
+    updateSnakeCurrentScore(0);
+  }
+  syncLeaderboardEntry(bestScore);
+}
+
+function drawSnakeGame() {
+  if (!snakeGame.ctx) return;
+  const { ctx, tileSize, gridSize } = snakeGame;
+  const boardSize = tileSize * gridSize;
+
+  ctx.clearRect(0, 0, boardSize, boardSize);
+  ctx.fillStyle = "#f3f0ff";
+  ctx.fillRect(0, 0, boardSize, boardSize);
+
+  ctx.strokeStyle = "rgba(108, 79, 252, 0.08)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= gridSize; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(i * tileSize, 0);
+    ctx.lineTo(i * tileSize, boardSize);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i * tileSize);
+    ctx.lineTo(boardSize, i * tileSize);
+    ctx.stroke();
+  }
+
+  if (snakeGame.food) {
+    ctx.fillStyle = "#ff8a91";
+    const offset = tileSize * 0.2;
+    ctx.fillRect(
+      snakeGame.food.x * tileSize + offset,
+      snakeGame.food.y * tileSize + offset,
+      tileSize - offset * 2,
+      tileSize - offset * 2
+    );
+  }
+
+  snakeGame.snake.forEach((segment, index) => {
+    const x = segment.x * tileSize;
+    const y = segment.y * tileSize;
+    ctx.fillStyle = index === 0 ? "#6c4ffc" : "#8b6ffc";
+    ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
+    if (index === 0) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.fillRect(x + 4, y + 4, tileSize - 8, tileSize - 8);
+    }
+  });
+}
+
+function placeSnakeFood() {
+  if (!snakeGame.gridSize) return;
+  const attemptsLimit = snakeGame.gridSize * snakeGame.gridSize;
+  for (let i = 0; i < attemptsLimit; i += 1) {
+    const position = {
+      x: Math.floor(Math.random() * snakeGame.gridSize),
+      y: Math.floor(Math.random() * snakeGame.gridSize)
+    };
+    const occupied = snakeGame.snake.some((segment) => segment.x === position.x && segment.y === position.y);
+    if (!occupied) {
+      snakeGame.food = position;
+      return;
+    }
+  }
+  snakeGame.food = null;
+}
+
+function resetSnakeGameState() {
+  if (!snakeGame.gridSize) return;
+  const center = Math.floor(snakeGame.gridSize / 2);
+  snakeGame.snake = [
+    { x: center, y: center },
+    { x: center - 1, y: center },
+    { x: center - 2, y: center }
+  ];
+  snakeGame.direction = { x: 1, y: 0 };
+  snakeGame.nextDirection = { x: 1, y: 0 };
+  snakeGame.score = 0;
+  updateSnakeCurrentScore(0);
+  placeSnakeFood();
+  drawSnakeGame();
+}
+
+function startSnakeGame() {
+  if (!snakeGame.ctx) return;
+  stopSnakeGame(true);
+  resetSnakeGameState();
+  snakeGame.running = true;
+  snakeGame.startedOnce = true;
+  snakeGame.loopId = setInterval(stepSnake, snakeGame.speed);
+  snakeCanvas?.focus();
+  if (snakeStartButton) {
+    snakeStartButton.textContent = "Yenidən başla";
+  }
+}
+
+function stopSnakeGame(resetState = false) {
+  if (snakeGame.loopId) {
+    clearInterval(snakeGame.loopId);
+    snakeGame.loopId = null;
+  }
+  snakeGame.running = false;
+  if (resetState) {
+    snakeGame.snake = [];
+    snakeGame.food = null;
+  }
+}
+
+function stepSnake() {
+  if (!snakeGame.running || !snakeGame.snake.length) return;
+
+  const nextDirection = snakeGame.nextDirection;
+  const currentHead = snakeGame.snake[0];
+  const nextHead = { x: currentHead.x + nextDirection.x, y: currentHead.y + nextDirection.y };
+  const willGrow =
+    snakeGame.food && nextHead.x === snakeGame.food.x && nextHead.y === snakeGame.food.y;
+  const bodyToCheck = willGrow ? snakeGame.snake : snakeGame.snake.slice(0, -1);
+
+  const hitWall =
+    nextHead.x < 0 ||
+    nextHead.y < 0 ||
+    nextHead.x >= snakeGame.gridSize ||
+    nextHead.y >= snakeGame.gridSize;
+  const hitSelf = bodyToCheck.some((segment) => segment.x === nextHead.x && segment.y === nextHead.y);
+
+  if (hitWall || hitSelf) {
+    handleSnakeGameOver();
+    return;
+  }
+
+  snakeGame.snake.unshift(nextHead);
+
+  if (willGrow) {
+    snakeGame.score += 1;
+    updateSnakeCurrentScore(snakeGame.score);
+    const previousBest = getSnakeBestScore();
+    if (snakeGame.score > previousBest) {
+      setSnakeBestScore(snakeGame.score);
+      updateSnakeBestDisplay(snakeGame.score);
+      recordSnakeLeaderboard(snakeGame.score);
+    }
+    placeSnakeFood();
+  } else {
+    snakeGame.snake.pop();
+  }
+
+  snakeGame.direction = { ...nextDirection };
+  drawSnakeGame();
+}
+
+function handleSnakeGameOver() {
+  stopSnakeGame(false);
+  drawSnakeGame();
+  syncLeaderboardEntry(getSnakeBestScore());
+  if (snakeStartButton) {
+    snakeStartButton.textContent = snakeGame.startedOnce ? "Yenidən başla" : "Oyuna başla";
+  }
+}
+
+function updateSnakeDirection(newDirection) {
+  if (!snakeGame.running) return;
+  const opposite =
+    snakeGame.direction.x === -newDirection.x && snakeGame.direction.y === -newDirection.y;
+  if (opposite) return;
+  snakeGame.nextDirection = { ...newDirection };
+}
+
+function handleSnakeKeydown(event) {
+  const directionMap = {
+    ArrowUp: { x: 0, y: -1 },
+    ArrowDown: { x: 0, y: 1 },
+    ArrowLeft: { x: -1, y: 0 },
+    ArrowRight: { x: 1, y: 0 },
+    w: { x: 0, y: -1 },
+    s: { x: 0, y: 1 },
+    a: { x: -1, y: 0 },
+    d: { x: 1, y: 0 }
+  };
+
+  const direction = directionMap[event.key];
+  if (!direction) return;
+
+  if (activeSectionId !== "games" || !snakeGame.running || !snakeGame.snake.length) {
+    return;
+  }
+
+  event.preventDefault();
+  updateSnakeDirection(direction);
+}
+
 activateAuthTab("login");
+
+snakeLeaderboard = loadSnakeLeaderboard();
+snakeLeaderboard.sort((a, b) => b.score - a.score);
+renderSnakeLeaderboard();
+refreshSnakeForActiveUser();
+if (snakeGame.ctx) {
+  drawSnakeGame();
+}
+showSection("home");
+
+navToggle?.addEventListener("click", () => toggleNavigation());
+
+dashboardLinks.forEach((link) => {
+  link.addEventListener("click", () => {
+    const target = link.dataset.nav;
+    if (target) {
+      showSection(target);
+    }
+  });
+});
+
+document.addEventListener("click", (event) => {
+  if (!dashboardNav || !navToggle) return;
+  if (!dashboardNav.classList.contains("open")) return;
+  const target = event.target;
+  if (dashboardNav.contains(target) || navToggle.contains(target)) return;
+  toggleNavigation(false);
+});
+
+snakeStartButton?.addEventListener("click", () => {
+  startSnakeGame();
+});
+
+window.addEventListener("keydown", handleSnakeKeydown);
 
 authTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
