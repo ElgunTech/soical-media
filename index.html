@@ -118,17 +118,25 @@
           <span class="sparkle">✨</span>
           <span class="wordmark">Frendli</span>
         </div>
-        <nav class="topnav">
-          <a href="#profile">Profil</a>
-          <a href="#posts">Postlar</a>
-          <a href="#tests">Testlər</a>
-          <a href="#chat">Söhbət</a>
-        </nav>
-        <button class="btn btn-primary" id="auth-action">Giriş</button>
+        <div class="topbar-actions">
+          <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="dashboard-nav">
+            📋 Bölmələr
+          </button>
+          <button class="btn btn-primary" id="auth-action">Giriş</button>
+        </div>
       </header>
 
-      <main class="container">
-      <section class="hero" aria-labelledby="hero-title">
+      <nav class="dashboard-nav" id="dashboard-nav" aria-label="İdarə paneli">
+        <button class="dashboard-link active" data-nav="home">Ana ekran</button>
+        <button class="dashboard-link" data-nav="profile">Profil</button>
+        <button class="dashboard-link" data-nav="posts">Postlar</button>
+        <button class="dashboard-link" data-nav="tests">Testlər</button>
+        <button class="dashboard-link" data-nav="chat">Söhbət</button>
+        <button class="dashboard-link" data-nav="games">Oyunlar</button>
+      </nav>
+
+      <main class="container dashboard-layout">
+      <section class="hero dashboard-section active" aria-labelledby="hero-title" data-section="home">
         <div class="hero-text">
           <h1 id="hero-title">Uşaqlar üçün xoş və təhlükəsiz sosial media</h1>
           <p>
@@ -148,7 +156,7 @@
         </div>
       </section>
 
-      <section id="profile" class="dashboard">
+      <section id="profile" class="dashboard dashboard-section" data-section="profile">
         <div class="card profile-card">
           <header class="card-header">
             <h2>Sənin profilin</h2>
@@ -198,7 +206,7 @@
         </div>
       </section>
 
-      <section id="posts" class="card posts-card">
+      <section id="posts" class="card posts-card dashboard-section" data-section="posts">
         <header class="card-header">
           <h2>Postlar lentin</h2>
           <div class="post-actions">
@@ -220,7 +228,7 @@
         <div id="post-list" class="post-list" aria-live="polite"></div>
       </section>
 
-      <section id="tests" class="card tests-card">
+      <section id="tests" class="card tests-card dashboard-section" data-section="tests">
         <header class="card-header">
           <h2>Bilgi oyunları və testlər</h2>
           <span class="hint">Özünü sınamaq üçün əyləncəli suallar!</span>
@@ -238,7 +246,7 @@
         </div>
       </section>
 
-      <section id="chat" class="card chat-card">
+      <section id="chat" class="card chat-card dashboard-section" data-section="chat">
         <header class="card-header">
           <h2>Real-time söhbət otağı</h2>
           <span class="hint">Dostlarınla anlıq mesajlaş!</span>
@@ -261,6 +269,45 @@
               <button type="submit" class="btn btn-primary">Göndər</button>
             </form>
           </div>
+        </div>
+      </section>
+
+      <section id="games" class="card games-card dashboard-section" data-section="games">
+        <header class="card-header">
+          <div>
+            <h2>Oyun məkanı</h2>
+            <span class="hint">Əfsanəvi Snake oyunu ilə reflekslərini yoxla!</span>
+          </div>
+          <div class="game-scoreboard" aria-live="polite">
+            <div class="score-item">
+              <span>Oyun xalı</span>
+              <strong id="snake-current">0</strong>
+            </div>
+            <div class="score-item">
+              <span>Ən yaxşı nəticə</span>
+              <strong id="snake-best">0</strong>
+            </div>
+          </div>
+        </header>
+        <div class="snake-wrapper">
+          <canvas
+            id="snake-canvas"
+            width="360"
+            height="360"
+            role="img"
+            aria-label="Snake oyunu sahəsi"
+            tabindex="0"
+          ></canvas>
+          <aside class="snake-sidebar">
+            <p class="snake-instructions">
+              "Başla" düyməsinə kliklə və ox düymələri ilə ilanı yönləndir. Qida topladıqca böyüyəcək və xalın artacaq. Divara və ya özünə dəymə!
+            </p>
+            <button class="btn btn-primary" id="snake-start">Oyuna başla</button>
+            <div class="leaderboard">
+              <h3>Leaderboard</h3>
+              <ol id="snake-leaderboard"></ol>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
