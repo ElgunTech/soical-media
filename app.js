@@ -212,6 +212,30 @@ const snakeStartButton = document.getElementById("snake-start");
 const snakeCurrentScoreEl = document.getElementById("snake-current");
 const snakeBestScoreEl = document.getElementById("snake-best");
 const snakeLeaderboardList = document.getElementById("snake-leaderboard");
+const snakeControls = document.getElementById("snake-controls");
+const snakeControlButtons = document.querySelectorAll(".snake-arrow");
+
+const SNAKE_BASE_SPEED = 110;
+const SNAKE_MIN_SPEED = 70;
+const SNAKE_SPEED_STEP = 4;
+
+const snakeDirections = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 }
+};
+
+const snakeKeyDirectionMap = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  w: "up",
+  s: "down",
+  a: "left",
+  d: "right"
+};
 
 let authMessageTimeout;
 let snakeLeaderboard = [];
@@ -228,9 +252,36 @@ const snakeGame = {
   loopId: null,
   running: false,
   score: 0,
-  speed: 140,
+  speed: SNAKE_BASE_SPEED,
   startedOnce: false
 };
+
+function restartSnakeLoop() {
+  if (snakeGame.loopId) {
+    clearInterval(snakeGame.loopId);
+  }
+  snakeGame.loopId = setInterval(stepSnake, snakeGame.speed);
+}
+
+function toggleSnakeControls(shouldShow) {
+  if (!snakeControls) return;
+  snakeControls.classList.toggle("is-visible", Boolean(shouldShow));
+  snakeControls.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+}
+
+function requestSnakeDirectionChange(directionName) {
+  const direction = snakeDirections[directionName];
+  if (!direction) return;
+  updateSnakeDirection(direction);
+}
+
+function accelerateSnakeIfNeeded() {
+  if (!snakeGame.running) return;
+  const targetSpeed = Math.max(SNAKE_MIN_SPEED, SNAKE_BASE_SPEED - snakeGame.score * SNAKE_SPEED_STEP);
+  if (targetSpeed === snakeGame.speed) return;
+  snakeGame.speed = targetSpeed;
+  restartSnakeLoop();
+}
 
 function showAuthMessage(text, type = "info") {
   if (!authMessage) return;
@@ -1078,6 +1129,7 @@ function resetSnakeGameState() {
   snakeGame.direction = { x: 1, y: 0 };
   snakeGame.nextDirection = { x: 1, y: 0 };
   snakeGame.score = 0;
+  snakeGame.speed = SNAKE_BASE_SPEED;
   updateSnakeCurrentScore(0);
   placeSnakeFood();
   drawSnakeGame();
@@ -1089,7 +1141,8 @@ function startSnakeGame() {
   resetSnakeGameState();
   snakeGame.running = true;
   snakeGame.startedOnce = true;
-  snakeGame.loopId = setInterval(stepSnake, snakeGame.speed);
+  restartSnakeLoop();
+  toggleSnakeControls(true);
   snakeCanvas?.focus();
   if (snakeStartButton) {
     snakeStartButton.textContent = "Yenidən başla";
@@ -1106,6 +1159,7 @@ function stopSnakeGame(resetState = false) {
     snakeGame.snake = [];
     snakeGame.food = null;
   }
+  toggleSnakeControls(false);
 }
 
 function stepSnake() {
@@ -1142,6 +1196,7 @@ function stepSnake() {
       recordSnakeLeaderboard(snakeGame.score);
     }
     placeSnakeFood();
+    accelerateSnakeIfNeeded();
   } else {
     snakeGame.snake.pop();
   }
@@ -1159,6 +1214,14 @@ function handleSnakeGameOver() {
   }
 }
 
+function handleSnakeControlInput(directionName) {
+  if (!directionName) return;
+  if (activeSectionId !== "games" || !snakeGame.running || !snakeGame.snake.length) {
+    return;
+  }
+  requestSnakeDirectionChange(directionName);
+}
+
 function updateSnakeDirection(newDirection) {
   if (!snakeGame.running) return;
   const opposite =
@@ -1168,26 +1231,15 @@ function updateSnakeDirection(newDirection) {
 }
 
 function handleSnakeKeydown(event) {
-  const directionMap = {
-    ArrowUp: { x: 0, y: -1 },
-    ArrowDown: { x: 0, y: 1 },
-    ArrowLeft: { x: -1, y: 0 },
-    ArrowRight: { x: 1, y: 0 },
-    w: { x: 0, y: -1 },
-    s: { x: 0, y: 1 },
-    a: { x: -1, y: 0 },
-    d: { x: 1, y: 0 }
-  };
-
-  const direction = directionMap[event.key];
-  if (!direction) return;
+  const directionName = snakeKeyDirectionMap[event.key];
+  if (!directionName) return;
 
   if (activeSectionId !== "games" || !snakeGame.running || !snakeGame.snake.length) {
     return;
   }
 
   event.preventDefault();
-  updateSnakeDirection(direction);
+  requestSnakeDirectionChange(directionName);
 }
 
 activateAuthTab("login");
@@ -1222,6 +1274,14 @@ document.addEventListener("click", (event) => {
 
 snakeStartButton?.addEventListener("click", () => {
   startSnakeGame();
+});
+
+snakeControlButtons.forEach((button) => {
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    handleSnakeControlInput(button.dataset.direction);
+  });
+  button.addEventListener("click", (event) => event.preventDefault());
 });
 
 window.addEventListener("keydown", handleSnakeKeydown);

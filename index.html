@@ -300,9 +300,27 @@
           ></canvas>
           <aside class="snake-sidebar">
             <p class="snake-instructions">
-              "Başla" düyməsinə kliklə və ox düymələri ilə ilanı yönləndir. Qida topladıqca böyüyəcək və xalın artacaq. Divara və ya özünə dəymə!
+              "Başla" düyməsinə kliklə və sağdakı istiqamət oxlarını istifadə et. Mouse ilə oxlara toxunduqca ilan həmin istiqamətə dönəcək. Qida topladıqca böyüyəcək və xalın artacaq, divara və ya özünə dəymə!
             </p>
             <button class="btn btn-primary" id="snake-start">Oyuna başla</button>
+            <div class="snake-controls" id="snake-controls" aria-hidden="true">
+              <div class="snake-controls-row">
+                <button class="snake-arrow" data-direction="up" aria-label="Yuxarı istiqamət">
+                  ▲
+                </button>
+              </div>
+              <div class="snake-controls-row">
+                <button class="snake-arrow" data-direction="left" aria-label="Sola dön">
+                  ◀
+                </button>
+                <button class="snake-arrow" data-direction="down" aria-label="Aşağı istiqamət">
+                  ▼
+                </button>
+                <button class="snake-arrow" data-direction="right" aria-label="Sağa dön">
+                  ▶
+                </button>
+              </div>
+            </div>
             <div class="leaderboard">
               <h3>Leaderboard</h3>
               <ol id="snake-leaderboard"></ol>
