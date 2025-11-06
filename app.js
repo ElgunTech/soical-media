@@ -216,9 +216,9 @@ const snakeLeaderboardList = document.getElementById("snake-leaderboard");
 const snakeControls = document.getElementById("snake-controls");
 const snakeControlButtons = document.querySelectorAll(".snake-arrow");
 
-const SNAKE_BASE_SPEED = 90;
-const SNAKE_MIN_SPEED = 45;
-const SNAKE_SPEED_STEP = 5;
+const SNAKE_BASE_SPEED = 80;
+const SNAKE_MIN_SPEED = 35;
+const SNAKE_SPEED_STEP = 4;
 
 const snakeDirections = {
   up: { x: 0, y: -1 },
@@ -1237,6 +1237,14 @@ function updateSnakeDirection(newDirection) {
 }
 
 function handleSnakeKeydown(event) {
+  const target = event.target;
+  if (
+    target &&
+    target.closest &&
+    (target.closest("input, textarea, select") || target.closest("[contenteditable='true']"))
+  ) {
+    return;
+  }
   const directionName = snakeKeyDirectionMap[event.key];
   if (!directionName) return;
 
@@ -1283,29 +1291,45 @@ snakeStartButton?.addEventListener("click", () => {
 });
 
 snakeControlButtons.forEach((button) => {
-  const handlePress = (event) => {
+  const directionName = button.dataset.direction;
+  let touchTriggered = false;
+  const activateControl = (event) => {
     event.preventDefault();
-    handleSnakeControlInput(button.dataset.direction);
+    if (!directionName) return;
+    handleSnakeControlInput(directionName);
   };
 
-  if (window.PointerEvent) {
-    button.addEventListener("pointerdown", handlePress);
-    button.addEventListener("click", (event) => event.preventDefault());
-    button.addEventListener("keydown", (event) => {
-      if (event.key === " " || event.key === "Enter") {
-        handlePress(event);
-      }
-    });
-  } else {
-    button.addEventListener("click", handlePress);
-    button.addEventListener(
-      "touchstart",
-      (event) => {
-        handlePress(event);
-      },
-      { passive: false }
-    );
-  }
+  button.addEventListener("click", (event) => {
+    if (touchTriggered) return;
+    activateControl(event);
+  });
+  button.addEventListener(
+    "touchstart",
+    (event) => {
+      touchTriggered = true;
+      activateControl(event);
+    },
+    { passive: false }
+  );
+  button.addEventListener(
+    "touchend",
+    () => {
+      touchTriggered = false;
+    },
+    { passive: true }
+  );
+  button.addEventListener(
+    "touchcancel",
+    () => {
+      touchTriggered = false;
+    },
+    { passive: true }
+  );
+  button.addEventListener("keydown", (event) => {
+    if (event.key === " " || event.key === "Enter") {
+      activateControl(event);
+    }
+  });
 });
 
 window.addEventListener("keydown", handleSnakeKeydown);
