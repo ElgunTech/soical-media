@@ -150,16 +150,6 @@ const chatReplies = [
   "Sənə 3 yeni dost təklifi göndərdim!"
 ];
 
-const SNAKE_BEST_PREFIX = "frendliSnakeBest_";
-const SNAKE_LEADERBOARD_KEY = "frendliSnakeLeaderboard";
-const DEFAULT_SNAKE_LEADERBOARD = [
-  { id: "sample-mira", name: "Mira Kod", score: 18 },
-  { id: "sample-leo", name: "Leo Qraf", score: 16 },
-  { id: "sample-tunar", name: "Tunar Oyuncu", score: 14 },
-  { id: "sample-leyla", name: "Leyla Kitab", score: 12 },
-  { id: "sample-nigar", name: "Nigar Musiqi", score: 10 }
-];
-
 let filteredPosts = [...postData];
 
 const STORAGE_USERS_KEY = "frendliUsers";
@@ -207,81 +197,206 @@ const navToggle = document.getElementById("nav-toggle");
 const dashboardNav = document.getElementById("dashboard-nav");
 const dashboardLinks = document.querySelectorAll(".dashboard-link");
 const dashboardSections = document.querySelectorAll(".dashboard-section");
-const snakeCanvas = document.getElementById("snake-canvas");
-const snakeStartButton = document.getElementById("snake-start");
-const snakeCurrentScoreEl = document.getElementById("snake-current");
-const snakeBestScoreEl = document.getElementById("snake-best");
-const snakeLeaderboardList = document.getElementById("snake-leaderboard");
-const snakeControls = document.getElementById("snake-controls");
-const snakeControlButtons = document.querySelectorAll(".snake-arrow");
+const memoryGrid = document.getElementById("memory-grid");
+const memoryStartButton = document.getElementById("memory-start");
+const memoryTimerEl = document.getElementById("memory-timer");
+const memoryBestEl = document.getElementById("memory-best");
+const memoryProgressEl = document.getElementById("memory-progress");
+const memoryLeaderboardList = document.getElementById("memory-leaderboard");
 
-const SNAKE_BASE_SPEED = 110;
-const SNAKE_MIN_SPEED = 70;
-const SNAKE_SPEED_STEP = 4;
+const MEMORY_CARD_SET = [
+  { id: "rocket", icon: "🚀", label: "Raketi tap" },
+  { id: "robot", icon: "🤖", label: "Robot dost" },
+  { id: "rainbow", icon: "🌈", label: "Göyqurşağı" },
+  { id: "book", icon: "📚", label: "Kitab macərası" },
+  { id: "music", icon: "🎵", label: "Musiqi notu" },
+  { id: "planet", icon: "🪐", label: "Planet turu" },
+  { id: "paint", icon: "🎨", label: "Rəsm palitrası" },
+  { id: "puzzle", icon: "🧩", label: "Tapmaca parçası" },
+  { id: "star", icon: "⭐", label: "Parlaq ulduz" },
+  { id: "camera", icon: "📷", label: "Foto çək" }
+];
 
-const snakeDirections = {
-  up: { x: 0, y: -1 },
-  down: { x: 0, y: 1 },
-  left: { x: -1, y: 0 },
-  right: { x: 1, y: 0 }
-};
-
-const snakeKeyDirectionMap = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  w: "up",
-  s: "down",
-  a: "left",
-  d: "right"
-};
+const MEMORY_TOTAL_PAIRS = 8;
+const MEMORY_BEST_PREFIX = "frendliMemoryBest_";
+const MEMORY_LEADERBOARD_KEY = "frendliMemoryLeaderboard";
+const DEFAULT_MEMORY_LEADERBOARD = [
+  { id: "sample-mira", name: "Mira Kod", time: 44 },
+  { id: "sample-leo", name: "Leo Qraf", time: 52 },
+  { id: "sample-leyla", name: "Leyla Kitab", time: 55 },
+  { id: "sample-tunar", name: "Tunar Oyuncu", time: 59 },
+  { id: "sample-nigar", name: "Nigar Musiqi", time: 63 }
+];
 
 let authMessageTimeout;
-let snakeLeaderboard = [];
+let memoryLeaderboard = [];
 let activeSectionId = "home";
-let snakeSwipeStart = null;
 
-const snakeGame = {
-  ctx: snakeCanvas ? snakeCanvas.getContext("2d") : null,
-  tileSize: 20,
-  gridSize: snakeCanvas ? Math.floor(snakeCanvas.width / 20) : 18,
-  snake: [],
-  direction: { x: 1, y: 0 },
-  nextDirection: { x: 1, y: 0 },
-  food: null,
-  loopId: null,
+const memoryGame = {
+  deck: [],
+  flippedIds: [],
+  matchedPairs: 0,
   running: false,
-  score: 0,
-  speed: SNAKE_BASE_SPEED,
+  timerId: null,
+  timeElapsed: 0,
+  busy: false,
   startedOnce: false
 };
 
-function restartSnakeLoop() {
-  if (snakeGame.loopId) {
-    clearInterval(snakeGame.loopId);
+function formatMemoryTime(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return "00:00";
   }
-  snakeGame.loopId = setInterval(stepSnake, snakeGame.speed);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.max(0, totalSeconds % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function toggleSnakeControls(shouldShow) {
-  if (!snakeControls) return;
-  snakeControls.classList.toggle("is-visible", Boolean(shouldShow));
-  snakeControls.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+function updateMemoryTimerDisplay(value = memoryGame.timeElapsed) {
+  if (memoryTimerEl) {
+    memoryTimerEl.textContent = formatMemoryTime(value);
+  }
 }
 
-function requestSnakeDirectionChange(directionName) {
-  const direction = snakeDirections[directionName];
-  if (!direction) return;
-  updateSnakeDirection(direction);
+function updateMemoryBestDisplay(bestSeconds) {
+  if (memoryBestEl) {
+    memoryBestEl.textContent = Number.isFinite(bestSeconds) && bestSeconds > 0 ? formatMemoryTime(bestSeconds) : "--";
+  }
 }
 
-function accelerateSnakeIfNeeded() {
-  if (!snakeGame.running) return;
-  const targetSpeed = Math.max(SNAKE_MIN_SPEED, SNAKE_BASE_SPEED - snakeGame.score * SNAKE_SPEED_STEP);
-  if (targetSpeed === snakeGame.speed) return;
-  snakeGame.speed = targetSpeed;
-  restartSnakeLoop();
+function updateMemoryProgressDisplay(message) {
+  if (memoryProgressEl) {
+    memoryProgressEl.textContent = message ?? `${memoryGame.matchedPairs}/${MEMORY_TOTAL_PAIRS} cütlük tapıldı`;
+  }
+}
+
+function stopMemoryTimer() {
+  if (memoryGame.timerId) {
+    clearInterval(memoryGame.timerId);
+    memoryGame.timerId = null;
+  }
+  memoryGame.running = false;
+}
+
+function startMemoryTimer() {
+  if (memoryGame.running) return;
+  stopMemoryTimer();
+  memoryGame.running = true;
+  memoryGame.timerId = setInterval(() => {
+    memoryGame.timeElapsed += 1;
+    updateMemoryTimerDisplay();
+  }, 1000);
+}
+
+function shuffleArray(array) {
+  const clone = [...array];
+  for (let i = clone.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [clone[i], clone[j]] = [clone[j], clone[i]];
+  }
+  return clone;
+}
+
+function createMemoryDeck() {
+  const randomized = shuffleArray(MEMORY_CARD_SET);
+  const selected = randomized.slice(0, MEMORY_TOTAL_PAIRS);
+  const deck = [];
+  selected.forEach((card, index) => {
+    const pairKey = `${card.id}-${index}`;
+    deck.push(
+      { ...card, pairKey, uid: `${pairKey}-a`, flipped: false, matched: false },
+      { ...card, pairKey, uid: `${pairKey}-b`, flipped: false, matched: false }
+    );
+  });
+  return shuffleArray(deck);
+}
+
+function renderMemoryDeck() {
+  if (!memoryGrid) return;
+  memoryGrid.innerHTML = "";
+  memoryGrid.setAttribute("aria-busy", memoryGame.busy ? "true" : "false");
+  memoryGame.deck.forEach((card) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `memory-card${card.matched ? " matched" : card.flipped ? " flipped" : ""}`;
+    button.dataset.cardId = card.uid;
+    button.setAttribute("aria-label", card.label);
+    button.disabled = card.matched;
+    button.innerHTML = `
+      <span class="memory-card-inner">
+        <span class="memory-card-front">?</span>
+        <span class="memory-card-back" aria-hidden="true">${card.icon}</span>
+      </span>
+    `;
+    button.addEventListener("click", () => handleMemoryCardClick(card.uid));
+    memoryGrid.appendChild(button);
+  });
+}
+
+function handleMemoryCardClick(cardId) {
+  if (memoryGame.busy || activeSectionId !== "games") return;
+  const card = memoryGame.deck.find((entry) => entry.uid === cardId);
+  if (!card || card.flipped || card.matched) return;
+
+  if (!memoryGame.running) {
+    startMemoryTimer();
+  }
+
+  card.flipped = true;
+  memoryGame.flippedIds.push(card.uid);
+  renderMemoryDeck();
+
+  if (memoryGame.flippedIds.length === 2) {
+    resolveMemoryTurn();
+  }
+}
+
+function resolveMemoryTurn() {
+  if (memoryGame.flippedIds.length < 2) return;
+  const [firstId, secondId] = memoryGame.flippedIds;
+  const firstCard = memoryGame.deck.find((card) => card.uid === firstId);
+  const secondCard = memoryGame.deck.find((card) => card.uid === secondId);
+  memoryGame.flippedIds = [];
+
+  if (!firstCard || !secondCard) return;
+
+  if (firstCard.pairKey === secondCard.pairKey) {
+    firstCard.matched = true;
+    secondCard.matched = true;
+    memoryGame.matchedPairs += 1;
+    updateMemoryProgressDisplay();
+    renderMemoryDeck();
+    if (memoryGame.matchedPairs === MEMORY_TOTAL_PAIRS) {
+      finishMemoryRound();
+    }
+  } else {
+    memoryGame.busy = true;
+    setTimeout(() => {
+      firstCard.flipped = false;
+      secondCard.flipped = false;
+      memoryGame.busy = false;
+      renderMemoryDeck();
+    }, 800);
+  }
+}
+
+function finishMemoryRound() {
+  stopMemoryTimer();
+  const finalTime = memoryGame.timeElapsed;
+  updateMemoryProgressDisplay(
+    `Bravo! ${MEMORY_TOTAL_PAIRS}/${MEMORY_TOTAL_PAIRS} cütlük ${formatMemoryTime(finalTime)}-də tapıldı`
+  );
+  if (memoryStartButton) {
+    memoryStartButton.textContent = "Yenidən qarışdır";
+  }
+  if (finalTime > 0) {
+    const previousBest = getMemoryBestTime();
+    if (!previousBest || finalTime < previousBest) {
+      setMemoryBestTime(finalTime);
+      updateMemoryBestDisplay(finalTime);
+    }
+    recordMemoryLeaderboard(finalTime);
+  }
 }
 
 function showAuthMessage(text, type = "info") {
@@ -398,7 +513,7 @@ function updateUIForUser(user) {
     if (chatMessages) {
       chatMessages.innerHTML = "";
     }
-    refreshSnakeForActiveUser();
+    refreshMemoryForActiveUser();
     return;
   }
 
@@ -415,7 +530,7 @@ function updateUIForUser(user) {
   showAuthMessage("");
   activateAuthTab("login");
   resetChat(user);
-  refreshSnakeForActiveUser();
+  refreshMemoryForActiveUser();
 }
 
 function updateCurrentUser(updater) {
@@ -898,10 +1013,9 @@ function showSection(sectionId) {
   });
 
   if (sectionId !== "games") {
-    stopSnakeGame(true);
-    updateSnakeCurrentScore(0);
-  } else if (snakeGame.ctx && !snakeGame.snake.length) {
-    drawSnakeGame();
+    stopMemoryTimer();
+  } else if (!memoryGame.deck.length) {
+    prepareMemoryRound({ initial: true });
   }
 
   toggleNavigation(false);
@@ -922,362 +1036,149 @@ function getActivePlayerName() {
   return "Qonaq oyunçu";
 }
 
-function getSnakeBestScore() {
+function getMemoryBestTime() {
   try {
-    const stored = localStorage.getItem(`${SNAKE_BEST_PREFIX}${getActivePlayerId()}`);
+    const stored = localStorage.getItem(`${MEMORY_BEST_PREFIX}${getActivePlayerId()}`);
     const parsed = Number(stored);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   } catch (error) {
-    console.warn("Snake best score oxunmadı", error);
-    return 0;
+    console.warn("Memory best time oxunmadı", error);
+    return null;
   }
 }
 
-function setSnakeBestScore(score) {
+function setMemoryBestTime(seconds) {
   try {
-    localStorage.setItem(`${SNAKE_BEST_PREFIX}${getActivePlayerId()}`, String(score));
+    localStorage.setItem(`${MEMORY_BEST_PREFIX}${getActivePlayerId()}`, String(seconds));
   } catch (error) {
-    console.warn("Snake best score yazılmadı", error);
+    console.warn("Memory best time yazılmadı", error);
   }
 }
 
-function updateSnakeBestDisplay(score) {
-  if (snakeBestScoreEl) {
-    snakeBestScoreEl.textContent = score;
-  }
-}
-
-function updateSnakeCurrentScore(score) {
-  if (snakeCurrentScoreEl) {
-    snakeCurrentScoreEl.textContent = score;
-  }
-}
-
-function saveSnakeLeaderboard(data) {
+function saveMemoryLeaderboard(data) {
   try {
-    localStorage.setItem(SNAKE_LEADERBOARD_KEY, JSON.stringify(data));
+    localStorage.setItem(MEMORY_LEADERBOARD_KEY, JSON.stringify(data));
   } catch (error) {
-    console.warn("Snake leaderboard saxlanmadı", error);
+    console.warn("Memory leaderboard saxlanmadı", error);
   }
 }
 
-function loadSnakeLeaderboard() {
+function loadMemoryLeaderboard() {
   try {
-    const stored = localStorage.getItem(SNAKE_LEADERBOARD_KEY);
+    const stored = localStorage.getItem(MEMORY_LEADERBOARD_KEY);
     if (!stored) {
-      return [...DEFAULT_SNAKE_LEADERBOARD];
+      return [...DEFAULT_MEMORY_LEADERBOARD];
     }
-
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) {
-      return [...DEFAULT_SNAKE_LEADERBOARD];
+      return [...DEFAULT_MEMORY_LEADERBOARD];
     }
-
     return parsed
       .filter(
         (entry) =>
-          entry && typeof entry.id === "string" && typeof entry.name === "string" && Number.isFinite(Number(entry.score))
+          entry && typeof entry.id === "string" && typeof entry.name === "string" && Number.isFinite(Number(entry.time))
       )
       .map((entry) => ({
         id: entry.id,
         name: entry.name,
-        score: Math.max(0, Number(entry.score))
+        time: Math.max(1, Number(entry.time))
       }));
   } catch (error) {
-    console.warn("Snake leaderboard oxunmadı", error);
-    return [...DEFAULT_SNAKE_LEADERBOARD];
+    console.warn("Memory leaderboard oxunmadı", error);
+    return [...DEFAULT_MEMORY_LEADERBOARD];
   }
 }
 
-function renderSnakeLeaderboard() {
-  if (!snakeLeaderboardList) return;
-
-  snakeLeaderboardList.innerHTML = "";
-  snakeLeaderboard.forEach((entry, index) => {
+function renderMemoryLeaderboard() {
+  if (!memoryLeaderboardList) return;
+  memoryLeaderboardList.innerHTML = "";
+  memoryLeaderboard.forEach((entry, index) => {
     const li = document.createElement("li");
     if (entry.id === getActivePlayerId()) {
       li.classList.add("active-player");
     }
-    li.innerHTML = `<span>${index + 1}. ${entry.name}</span><strong>${entry.score}</strong>`;
-    snakeLeaderboardList.appendChild(li);
+    li.innerHTML = `<span>${index + 1}. ${entry.name}</span><strong>${formatMemoryTime(entry.time)}</strong>`;
+    memoryLeaderboardList.appendChild(li);
   });
 }
 
-function syncLeaderboardEntry(bestScore) {
+function syncMemoryLeaderboard(bestTime) {
   const playerId = getActivePlayerId();
   const playerName = getActivePlayerName();
-  const index = snakeLeaderboard.findIndex((entry) => entry.id === playerId);
+  const index = memoryLeaderboard.findIndex((entry) => entry.id === playerId);
 
-  if (bestScore > 0) {
+  if (bestTime && bestTime > 0) {
     if (index === -1) {
-      snakeLeaderboard.push({ id: playerId, name: playerName, score: bestScore });
+      memoryLeaderboard.push({ id: playerId, name: playerName, time: bestTime });
     } else {
-      snakeLeaderboard[index].name = playerName;
-      snakeLeaderboard[index].score = Math.max(snakeLeaderboard[index].score, bestScore);
+      memoryLeaderboard[index].name = playerName;
+      memoryLeaderboard[index].time = Math.min(memoryLeaderboard[index].time, bestTime);
     }
   } else if (index !== -1) {
-    snakeLeaderboard[index].name = playerName;
+    memoryLeaderboard[index].name = playerName;
   }
 
-  snakeLeaderboard.sort((a, b) => b.score - a.score);
-  snakeLeaderboard = snakeLeaderboard.slice(0, 8);
-  saveSnakeLeaderboard(snakeLeaderboard);
-  renderSnakeLeaderboard();
+  memoryLeaderboard.sort((a, b) => a.time - b.time);
+  memoryLeaderboard = memoryLeaderboard.slice(0, 8);
+  saveMemoryLeaderboard(memoryLeaderboard);
+  renderMemoryLeaderboard();
 }
 
-function recordSnakeLeaderboard(score) {
-  if (score <= 0) return;
-
+function recordMemoryLeaderboard(time) {
+  if (!time || time <= 0) return;
   const playerId = getActivePlayerId();
   const playerName = getActivePlayerName();
-  const index = snakeLeaderboard.findIndex((entry) => entry.id === playerId);
-
+  const index = memoryLeaderboard.findIndex((entry) => entry.id === playerId);
   if (index === -1) {
-    snakeLeaderboard.push({ id: playerId, name: playerName, score });
-  } else if (score > snakeLeaderboard[index].score) {
-    snakeLeaderboard[index].score = score;
-    snakeLeaderboard[index].name = playerName;
+    memoryLeaderboard.push({ id: playerId, name: playerName, time });
+  } else if (time < memoryLeaderboard[index].time) {
+    memoryLeaderboard[index].time = time;
+    memoryLeaderboard[index].name = playerName;
   } else {
-    snakeLeaderboard[index].name = playerName;
+    memoryLeaderboard[index].name = playerName;
   }
-
-  snakeLeaderboard.sort((a, b) => b.score - a.score);
-  snakeLeaderboard = snakeLeaderboard.slice(0, 8);
-  saveSnakeLeaderboard(snakeLeaderboard);
-  renderSnakeLeaderboard();
+  memoryLeaderboard.sort((a, b) => a.time - b.time);
+  memoryLeaderboard = memoryLeaderboard.slice(0, 8);
+  saveMemoryLeaderboard(memoryLeaderboard);
+  renderMemoryLeaderboard();
 }
 
-function refreshSnakeForActiveUser() {
-  if (!snakeBestScoreEl || !snakeCurrentScoreEl) return;
-  const bestScore = getSnakeBestScore();
-  updateSnakeBestDisplay(bestScore);
-  if (!snakeGame.running) {
-    updateSnakeCurrentScore(0);
+function refreshMemoryForActiveUser() {
+  updateMemoryTimerDisplay(0);
+  memoryGame.timeElapsed = 0;
+  memoryGame.matchedPairs = 0;
+  updateMemoryProgressDisplay();
+  const bestTime = getMemoryBestTime();
+  updateMemoryBestDisplay(bestTime);
+  syncMemoryLeaderboard(bestTime ?? 0);
+}
+
+function prepareMemoryRound(options = {}) {
+  if (!memoryGrid) return;
+  stopMemoryTimer();
+  memoryGame.deck = createMemoryDeck();
+  memoryGame.flippedIds = [];
+  memoryGame.matchedPairs = 0;
+  memoryGame.timeElapsed = 0;
+  memoryGame.busy = false;
+  if (!options.initial) {
+    memoryGame.startedOnce = true;
   }
-  syncLeaderboardEntry(bestScore);
-}
-
-function drawSnakeGame() {
-  if (!snakeGame.ctx) return;
-  const { ctx, tileSize, gridSize } = snakeGame;
-  const boardSize = tileSize * gridSize;
-
-  ctx.clearRect(0, 0, boardSize, boardSize);
-  ctx.fillStyle = "#f3f0ff";
-  ctx.fillRect(0, 0, boardSize, boardSize);
-
-  ctx.strokeStyle = "rgba(108, 79, 252, 0.08)";
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= gridSize; i += 1) {
-    ctx.beginPath();
-    ctx.moveTo(i * tileSize, 0);
-    ctx.lineTo(i * tileSize, boardSize);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, i * tileSize);
-    ctx.lineTo(boardSize, i * tileSize);
-    ctx.stroke();
-  }
-
-  if (snakeGame.food) {
-    ctx.fillStyle = "#ff8a91";
-    const offset = tileSize * 0.2;
-    ctx.fillRect(
-      snakeGame.food.x * tileSize + offset,
-      snakeGame.food.y * tileSize + offset,
-      tileSize - offset * 2,
-      tileSize - offset * 2
-    );
-  }
-
-  snakeGame.snake.forEach((segment, index) => {
-    const x = segment.x * tileSize;
-    const y = segment.y * tileSize;
-    ctx.fillStyle = index === 0 ? "#6c4ffc" : "#8b6ffc";
-    ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
-    if (index === 0) {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-      ctx.fillRect(x + 4, y + 4, tileSize - 8, tileSize - 8);
-    }
-  });
-}
-
-function placeSnakeFood() {
-  if (!snakeGame.gridSize) return;
-  const attemptsLimit = snakeGame.gridSize * snakeGame.gridSize;
-  for (let i = 0; i < attemptsLimit; i += 1) {
-    const position = {
-      x: Math.floor(Math.random() * snakeGame.gridSize),
-      y: Math.floor(Math.random() * snakeGame.gridSize)
-    };
-    const occupied = snakeGame.snake.some((segment) => segment.x === position.x && segment.y === position.y);
-    if (!occupied) {
-      snakeGame.food = position;
-      return;
-    }
-  }
-  snakeGame.food = null;
-}
-
-function resetSnakeGameState() {
-  if (!snakeGame.gridSize) return;
-  const center = Math.floor(snakeGame.gridSize / 2);
-  snakeGame.snake = [
-    { x: center, y: center },
-    { x: center - 1, y: center },
-    { x: center - 2, y: center }
-  ];
-  snakeGame.direction = { x: 1, y: 0 };
-  snakeGame.nextDirection = { x: 1, y: 0 };
-  snakeGame.score = 0;
-  snakeGame.speed = SNAKE_BASE_SPEED;
-  updateSnakeCurrentScore(0);
-  placeSnakeFood();
-  drawSnakeGame();
-}
-
-function startSnakeGame() {
-  if (!snakeGame.ctx) return;
-  stopSnakeGame(true);
-  resetSnakeGameState();
-  snakeGame.running = true;
-  snakeGame.startedOnce = true;
-  restartSnakeLoop();
-  toggleSnakeControls(true);
-  snakeCanvas?.focus();
-  if (snakeStartButton) {
-    snakeStartButton.textContent = "Yenidən başla";
-  }
-}
-
-function stopSnakeGame(resetState = false) {
-  if (snakeGame.loopId) {
-    clearInterval(snakeGame.loopId);
-    snakeGame.loopId = null;
-  }
-  snakeGame.running = false;
-  if (resetState) {
-    snakeGame.snake = [];
-    snakeGame.food = null;
-  }
-  toggleSnakeControls(false);
-}
-
-function stepSnake() {
-  if (!snakeGame.running || !snakeGame.snake.length) return;
-
-  const nextDirection = snakeGame.nextDirection;
-  const currentHead = snakeGame.snake[0];
-  const nextHead = { x: currentHead.x + nextDirection.x, y: currentHead.y + nextDirection.y };
-  const willGrow =
-    snakeGame.food && nextHead.x === snakeGame.food.x && nextHead.y === snakeGame.food.y;
-  const bodyToCheck = willGrow ? snakeGame.snake : snakeGame.snake.slice(0, -1);
-
-  const hitWall =
-    nextHead.x < 0 ||
-    nextHead.y < 0 ||
-    nextHead.x >= snakeGame.gridSize ||
-    nextHead.y >= snakeGame.gridSize;
-  const hitSelf = bodyToCheck.some((segment) => segment.x === nextHead.x && segment.y === nextHead.y);
-
-  if (hitWall || hitSelf) {
-    handleSnakeGameOver();
-    return;
-  }
-
-  snakeGame.snake.unshift(nextHead);
-
-  if (willGrow) {
-    snakeGame.score += 1;
-    updateSnakeCurrentScore(snakeGame.score);
-    const previousBest = getSnakeBestScore();
-    if (snakeGame.score > previousBest) {
-      setSnakeBestScore(snakeGame.score);
-      updateSnakeBestDisplay(snakeGame.score);
-      recordSnakeLeaderboard(snakeGame.score);
-    }
-    placeSnakeFood();
-    accelerateSnakeIfNeeded();
-  } else {
-    snakeGame.snake.pop();
-  }
-
-  snakeGame.direction = { ...nextDirection };
-  drawSnakeGame();
-}
-
-function handleSnakeGameOver() {
-  stopSnakeGame(false);
-  drawSnakeGame();
-  syncLeaderboardEntry(getSnakeBestScore());
-  if (snakeStartButton) {
-    snakeStartButton.textContent = snakeGame.startedOnce ? "Yenidən başla" : "Oyuna başla";
-  }
-}
-
-function canAcceptSnakeInput() {
-  return activeSectionId === "games" && snakeGame.running && snakeGame.snake.length > 0;
-}
-
-function handleSnakeControlInput(directionName) {
-  if (!directionName || !canAcceptSnakeInput()) return;
-  requestSnakeDirectionChange(directionName);
-}
-
-function updateSnakeDirection(newDirection) {
-  if (!snakeGame.running) return;
-  const opposite =
-    snakeGame.direction.x === -newDirection.x && snakeGame.direction.y === -newDirection.y;
-  if (opposite) return;
-  snakeGame.nextDirection = { ...newDirection };
-}
-
-function handleSnakeKeydown(event) {
-  const directionName = snakeKeyDirectionMap[event.key];
-  if (!directionName || !canAcceptSnakeInput()) return;
-
-  event.preventDefault();
-  requestSnakeDirectionChange(directionName);
-}
-
-function handleSnakePointerStart(event) {
-  if (!canAcceptSnakeInput()) return;
-  snakeSwipeStart = { x: event.clientX, y: event.clientY };
-}
-
-function handleSnakePointerEnd(event) {
-  if (!snakeSwipeStart || !canAcceptSnakeInput()) {
-    snakeSwipeStart = null;
-    return;
-  }
-
-  const deltaX = event.clientX - snakeSwipeStart.x;
-  const deltaY = event.clientY - snakeSwipeStart.y;
-  const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
-  snakeSwipeStart = null;
-
-  const SWIPE_THRESHOLD = 18;
-  if (absX < SWIPE_THRESHOLD && absY < SWIPE_THRESHOLD) {
-    return;
-  }
-
-  if (absX > absY) {
-    handleSnakeControlInput(deltaX > 0 ? "right" : "left");
-  } else {
-    handleSnakeControlInput(deltaY > 0 ? "down" : "up");
+  updateMemoryTimerDisplay(0);
+  updateMemoryProgressDisplay();
+  renderMemoryDeck();
+  if (memoryStartButton) {
+    memoryStartButton.textContent = memoryGame.startedOnce ? "Yenidən qarışdır" : "Kartları qarışdır";
   }
 }
 
 activateAuthTab("login");
 
-snakeLeaderboard = loadSnakeLeaderboard();
-snakeLeaderboard.sort((a, b) => b.score - a.score);
-renderSnakeLeaderboard();
-refreshSnakeForActiveUser();
-if (snakeGame.ctx) {
-  drawSnakeGame();
-}
+memoryLeaderboard = loadMemoryLeaderboard();
+memoryLeaderboard.sort((a, b) => a.time - b.time);
+renderMemoryLeaderboard();
+refreshMemoryForActiveUser();
+prepareMemoryRound({ initial: true });
 showSection("home");
 
 navToggle?.addEventListener("click", () => toggleNavigation());
@@ -1299,23 +1200,8 @@ document.addEventListener("click", (event) => {
   toggleNavigation(false);
 });
 
-snakeStartButton?.addEventListener("click", () => {
-  startSnakeGame();
-});
-
-snakeControlButtons.forEach((button) => {
-  button.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    handleSnakeControlInput(button.dataset.direction);
-  });
-  button.addEventListener("click", (event) => event.preventDefault());
-});
-
-window.addEventListener("keydown", handleSnakeKeydown);
-snakeCanvas?.addEventListener("pointerdown", handleSnakePointerStart);
-window.addEventListener("pointerup", handleSnakePointerEnd);
-window.addEventListener("pointercancel", () => {
-  snakeSwipeStart = null;
+memoryStartButton?.addEventListener("click", () => {
+  prepareMemoryRound();
 });
 
 authTabs.forEach((tab) => {
