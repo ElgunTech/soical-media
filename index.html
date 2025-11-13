@@ -276,54 +276,36 @@
         <header class="card-header">
           <div>
             <h2>Oyun məkanı</h2>
-            <span class="hint">Əfsanəvi Snake oyunu ilə reflekslərini yoxla!</span>
+            <span class="hint">Yaddaşını məşhur Memory Match oyunu ilə sına!</span>
           </div>
           <div class="game-scoreboard" aria-live="polite">
             <div class="score-item">
-              <span>Oyun xalı</span>
-              <strong id="snake-current">0</strong>
+              <span>Vaxt</span>
+              <strong id="memory-timer">00:00</strong>
             </div>
             <div class="score-item">
-              <span>Ən yaxşı nəticə</span>
-              <strong id="snake-best">0</strong>
+              <span>Ən sürətli nəticə</span>
+              <strong id="memory-best">--</strong>
             </div>
           </div>
         </header>
-        <div class="snake-wrapper">
-          <canvas
-            id="snake-canvas"
-            width="360"
-            height="360"
-            role="img"
-            aria-label="Snake oyunu sahəsi"
-            tabindex="0"
-          ></canvas>
-          <aside class="snake-sidebar">
-            <p class="snake-instructions">
-              "Başla" düyməsinə kliklə və sağdakı istiqamət oxlarını istifadə et. Mobil cihazda və ya klaviatura işləmədikdə birbaşa oyun sahəsində sürüşdürərək də yönləndirə bilərsən. Qida topladıqca böyüyəcək və xalın artacaq, divara və ya özünə dəymə!
+        <div class="memory-wrapper">
+          <div
+            id="memory-grid"
+            class="memory-grid"
+            role="grid"
+            aria-label="Kart uyğunlaşdırma oyunu"
+          ></div>
+          <aside class="memory-sidebar">
+            <p class="memory-instructions">
+              Kartları qarışdır, iki kartı çevir və eyni simvolları tap. İlk çevirmədən sonra saniyəölçən işə düşür,
+              buna görə sürətli ol! Cütlük tapanda kartlar açıq qalır və bütün cütlükləri topladıqda yeni rekord sənindir.
             </p>
-            <button class="btn btn-primary" id="snake-start">Oyuna başla</button>
-            <div class="snake-controls" id="snake-controls" aria-hidden="true">
-              <div class="snake-controls-row">
-                <button class="snake-arrow" data-direction="up" aria-label="Yuxarı istiqamət">
-                  ▲
-                </button>
-              </div>
-              <div class="snake-controls-row">
-                <button class="snake-arrow" data-direction="left" aria-label="Sola dön">
-                  ◀
-                </button>
-                <button class="snake-arrow" data-direction="down" aria-label="Aşağı istiqamət">
-                  ▼
-                </button>
-                <button class="snake-arrow" data-direction="right" aria-label="Sağa dön">
-                  ▶
-                </button>
-              </div>
-            </div>
+            <button class="btn btn-primary" id="memory-start">Kartları qarışdır</button>
+            <p class="memory-progress" id="memory-progress">0/8 cütlük tapıldı</p>
             <div class="leaderboard">
-              <h3>Leaderboard</h3>
-              <ol id="snake-leaderboard"></ol>
+              <h3>Ən sürətli yaddaş ustaları</h3>
+              <ol id="memory-leaderboard"></ol>
             </div>
           </aside>
         </div>
