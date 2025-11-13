@@ -240,6 +240,7 @@ const snakeKeyDirectionMap = {
 let authMessageTimeout;
 let snakeLeaderboard = [];
 let activeSectionId = "home";
+let snakeSwipeStart = null;
 
 const snakeGame = {
   ctx: snakeCanvas ? snakeCanvas.getContext("2d") : null,
@@ -1214,11 +1215,12 @@ function handleSnakeGameOver() {
   }
 }
 
+function canAcceptSnakeInput() {
+  return activeSectionId === "games" && snakeGame.running && snakeGame.snake.length > 0;
+}
+
 function handleSnakeControlInput(directionName) {
-  if (!directionName) return;
-  if (activeSectionId !== "games" || !snakeGame.running || !snakeGame.snake.length) {
-    return;
-  }
+  if (!directionName || !canAcceptSnakeInput()) return;
   requestSnakeDirectionChange(directionName);
 }
 
@@ -1232,14 +1234,39 @@ function updateSnakeDirection(newDirection) {
 
 function handleSnakeKeydown(event) {
   const directionName = snakeKeyDirectionMap[event.key];
-  if (!directionName) return;
-
-  if (activeSectionId !== "games" || !snakeGame.running || !snakeGame.snake.length) {
-    return;
-  }
+  if (!directionName || !canAcceptSnakeInput()) return;
 
   event.preventDefault();
   requestSnakeDirectionChange(directionName);
+}
+
+function handleSnakePointerStart(event) {
+  if (!canAcceptSnakeInput()) return;
+  snakeSwipeStart = { x: event.clientX, y: event.clientY };
+}
+
+function handleSnakePointerEnd(event) {
+  if (!snakeSwipeStart || !canAcceptSnakeInput()) {
+    snakeSwipeStart = null;
+    return;
+  }
+
+  const deltaX = event.clientX - snakeSwipeStart.x;
+  const deltaY = event.clientY - snakeSwipeStart.y;
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
+  snakeSwipeStart = null;
+
+  const SWIPE_THRESHOLD = 18;
+  if (absX < SWIPE_THRESHOLD && absY < SWIPE_THRESHOLD) {
+    return;
+  }
+
+  if (absX > absY) {
+    handleSnakeControlInput(deltaX > 0 ? "right" : "left");
+  } else {
+    handleSnakeControlInput(deltaY > 0 ? "down" : "up");
+  }
 }
 
 activateAuthTab("login");
@@ -1285,6 +1312,11 @@ snakeControlButtons.forEach((button) => {
 });
 
 window.addEventListener("keydown", handleSnakeKeydown);
+snakeCanvas?.addEventListener("pointerdown", handleSnakePointerStart);
+window.addEventListener("pointerup", handleSnakePointerEnd);
+window.addEventListener("pointercancel", () => {
+  snakeSwipeStart = null;
+});
 
 authTabs.forEach((tab) => {
   tab.addEventListener("click", () => {
